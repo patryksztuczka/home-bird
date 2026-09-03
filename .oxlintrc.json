@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["import", "typescript", "unicorn"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    "import/no-unassigned-import": "off",
+    "unicorn/filename-case": ["error", { "case": "kebabCase" }]
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    ".turbo/",
+    "dist/",
+    "coverage/",
+    "packages/database/drizzle/",
+    ".agent-sources/"
+  ],
+  "overrides": [
+    {
+      "files": ["apps/web/**", "packages/ui/**"],
+      "plugins": ["react"],
+      "rules": {
+        "react/react-in-jsx-scope": "off"
+      }
+    }
+  ]
+}

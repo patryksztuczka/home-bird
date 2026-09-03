@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: home-bird-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: home-bird
+      POSTGRES_PASSWORD: home-bird
+      POSTGRES_DB: home-bird
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U home-bird -d home-bird"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
