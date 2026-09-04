@@ -1,23 +1,16 @@
+import { referenceComponentLabels } from "@home-bird/shared/apartment-reference";
 import { floorPlanDataUrl } from "@home-bird/shared/apartment-project";
 import { Button } from "@home-bird/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTRPC } from "../../lib/trpc";
+import { ApartmentReferencePanel } from "./apartment-reference-panel";
+import { AttachReferenceDialog } from "./attach-reference-dialog";
 import { ChevronLeft, InfoIcon, MinusIcon, PlanIcon, PlusIcon, SparkleIcon } from "./icons";
+import { useApartmentReferences } from "./use-apartment-references";
 import { RoomMappingOverlay } from "./room-mapping-overlay";
 import { RoomMappingPanel } from "./room-mapping-panel";
 import { useRoomMapping } from "./use-room-mapping";
-
-/** The apartment-wide components every scope offers. Room-only fields come later. */
-const commonComponents = [
-  "Overall style",
-  "Floor",
-  "Walls",
-  "Ceiling",
-  "Doors",
-  "Windows",
-  "Lighting",
-] as const;
 
 const zoomSteps = [50, 75, 100, 125, 150, 200];
 
@@ -43,6 +36,7 @@ export function ApartmentEditor({
   );
   const [zoom, setZoom] = useState(100);
   const mapping = useRoomMapping(projectId);
+  const references = useApartmentReferences(projectId);
 
   const stepZoom = (direction: -1 | 1) => {
     const index = zoomSteps.indexOf(zoom);
@@ -101,6 +95,7 @@ export function ApartmentEditor({
 
   return (
     <div className="flex h-screen flex-col bg-canvas">
+      <AttachReferenceDialog key={references.draft?.component ?? "none"} references={references} />
       <header className="flex h-15 shrink-0 items-center gap-4 border-b border-hairline bg-surface pr-5 pl-6">
         <button
           type="button"
@@ -240,42 +235,20 @@ export function ApartmentEditor({
                     <span className="text-[12.5px] text-accent-ink">Defaults for every room</span>
                   </span>
                 </div>
+                <p className="text-meta leading-[1.5] text-muted">
+                  These references apply to every room unless a room overrides them.
+                </p>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-5 pt-5">
-                <div className="flex items-baseline gap-2 pb-3">
-                  <h2 className="text-label font-semibold tracking-[0.08em] text-ink uppercase">
-                    References
-                  </h2>
-                  <span className="text-label text-muted">not available yet</span>
-                </div>
-
-                <ul className="flex flex-col">
-                  {commonComponents.map((component) => (
-                    <li
-                      key={component}
-                      className="flex items-center gap-3 px-1 py-[9px] opacity-55"
-                      aria-disabled
-                    >
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-hairline-strong bg-surface-sunk text-muted">
-                        <PlusIcon />
-                      </span>
-                      <span className="min-w-0 flex-1 text-[14.5px] font-medium text-ink">
-                        {component}
-                      </span>
-                      <span className="w-13 shrink-0 text-right text-meta text-muted">Add</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <ApartmentReferencePanel references={references} />
 
               <div className="flex flex-col gap-3 border-t border-hairline bg-surface-sunk px-5 pt-[18px] pb-5">
                 <div className="flex items-start gap-2.5">
                   <InfoIcon className="mt-0.5 shrink-0 text-muted" />
                   <p className="flex-1 text-meta leading-[1.5] text-muted">
-                    {mapping.confirmed
-                      ? `${mapping.rooms.length} room${mapping.rooms.length === 1 ? "" : "s"} mapped. References are still to come — the plan is ready for them.`
-                      : "Attaching references is still to come. Map the interior first: it is what unlocks generation."}
+                    {references.justRemoved
+                      ? `${referenceComponentLabels[references.justRemoved]} reference removed. Every other reference is unchanged.`
+                      : "Add a local image or a direct image link. Each component holds one reference."}
                   </p>
                 </div>
                 <Button

@@ -6,7 +6,9 @@
     ".": "./src/index.ts",
     "./apartment-project": "./src/apartment-project.ts",
     "./room-area": "./src/room-area.ts",
-    "./todo": "./src/todo.ts"
+    "./todo": "./src/todo.ts",
+    "./apartment-reference": "./src/apartment-reference.ts",
+    "./image-file": "./src/image-file.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
