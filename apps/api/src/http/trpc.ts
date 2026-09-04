@@ -3,6 +3,7 @@ import type { EffectDrizzleQueryError } from "drizzle-orm/effect-core";
 import { Effect, Schema } from "effect";
 import type { AppServices } from "../layers.ts";
 import type { ImageStorageFailure } from "../modules/apartment/image-storage.ts";
+import type { VisualizationProviderFailure } from "../modules/apartment/visualization-provider.ts";
 import { runtime } from "../runtime.ts";
 
 /** Domain-level "bad request" error resolvers can yield; mapped to BAD_REQUEST. */
@@ -28,6 +29,7 @@ export type ResolverError =
   | InvalidRequest
   | NotFound
   | ImageStorageFailure
+  | VisualizationProviderFailure
   | EffectDrizzleQueryError;
 
 const t = initTRPC.create();

@@ -1,14 +1,17 @@
 import { referenceComponentLabels } from "@home-bird/shared/apartment-reference";
 import { roomReferenceComponentLabels } from "@home-bird/shared/room-reference";
 import { floorPlanDataUrl } from "@home-bird/shared/apartment-project";
+import { visualizationDataUrl } from "@home-bird/shared/apartment-visualization";
 import { Button } from "@home-bird/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTRPC } from "../../lib/trpc";
+import { ApartmentGenerationPanel } from "./apartment-generation-panel";
 import { ApartmentReferencePanel } from "./apartment-reference-panel";
 import { AttachReferenceDialog } from "./attach-reference-dialog";
-import { ChevronLeft, InfoIcon, MinusIcon, PlanIcon, PlusIcon, SparkleIcon } from "./icons";
+import { BoxIcon, ChevronLeft, InfoIcon, MinusIcon, PlanIcon, PlusIcon } from "./icons";
 import { useApartmentReferences } from "./use-apartment-references";
+import { useApartmentVisualization } from "./use-apartment-visualization";
 import { RoomMappingOverlay } from "./room-mapping-overlay";
 import { RoomMappingPanel } from "./room-mapping-panel";
 import { RoomReferencePanel } from "./room-reference-panel";
@@ -38,7 +41,9 @@ export function ApartmentEditor({
     ),
   );
   const [zoom, setZoom] = useState(100);
+  const [view, setView] = useState<"floor-plan" | "visualization">("floor-plan");
   const mapping = useRoomMapping(projectId);
+  const visualization = useApartmentVisualization(projectId);
   const references = useApartmentReferences(projectId);
   const selectedRoom = mapping.rooms.find((room) => room.id === mapping.selectedId);
   const selectedRoomLabel = selectedRoom === undefined ? "" : roomLabel(selectedRoom);
@@ -169,24 +174,31 @@ export function ApartmentEditor({
               <PlusIcon />
             </button>
           </div>
-
-          <Button
-            variant={mapping.confirmed ? "primary" : "quiet"}
-            disabled={!mapping.confirmed}
-            title={mapping.confirmed ? undefined : "Map every room before generating"}
-            className="text-sm"
-          >
-            <SparkleIcon />
-            Generate
-          </Button>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
         <main
           aria-label="Floor plan"
-          className="flex flex-1 items-center justify-center overflow-auto bg-canvas p-12"
+          className="relative flex flex-1 items-center justify-center overflow-auto bg-canvas p-12"
         >
+          <div className="absolute top-5 left-6 z-10 flex items-center gap-1 rounded-[10px] border border-hairline bg-surface p-1 shadow-raised">
+            <button
+              type="button"
+              onClick={() => setView("floor-plan")}
+              className={`flex h-[34px] items-center gap-2 rounded-[7px] px-3 text-label font-semibold ${view === "floor-plan" ? "bg-accent-wash text-accent" : "text-muted"}`}
+            >
+              <PlanIcon /> Floor plan
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("visualization")}
+              disabled={mapping.mapping}
+              className={`flex h-[34px] items-center gap-2 rounded-[7px] px-3 text-label font-semibold disabled:opacity-45 ${view === "visualization" ? "bg-accent-wash text-accent" : "text-muted"}`}
+            >
+              <BoxIcon /> Visualizations{visualization.count > 0 ? ` ${visualization.count}` : ""}
+            </button>
+          </div>
           {(project.isPending || floorPlan.isPending) && (
             <p className="text-sm text-muted">Loading floor plan…</p>
           )}
@@ -195,35 +207,47 @@ export function ApartmentEditor({
               We could not open this project.
             </p>
           )}
-          {project.data && floorPlan.data && (
-            <div
-              style={{ transform: `scale(${zoom / 100})` }}
-              className="shrink-0 rounded-sm bg-surface p-9 shadow-sheet transition-transform duration-[320ms] ease-settle"
-            >
-              <div className="relative">
-                <img
-                  src={floorPlanDataUrl(floorPlan.data)}
-                  alt={`Floor plan for ${project.data.name}`}
-                  className="block max-h-[70vh] w-auto max-w-[740px] object-contain"
-                />
-                {(mapping.mapping || mapping.rooms.length > 0) && (
-                  <RoomMappingOverlay
-                    rooms={mapping.rooms}
-                    draft={mapping.draft}
-                    selectedId={mapping.selectedId}
-                    selectedPoint={mapping.selectedPoint}
-                    onPlaceClick={mapping.addPoint}
-                    onSelectRoom={mapping.selectRoom}
-                    onSelectPoint={mapping.setSelectedPoint}
-                    onMovePoint={mapping.movePoint}
-                    onInsertPoint={mapping.insertPoint}
-                    onRemovePoint={mapping.removePoint}
-                    onCommitPoints={mapping.commitPoints}
-                    onClose={mapping.closeDraft}
+          {(view === "floor-plan" || visualization.count === 0) &&
+            project.data &&
+            floorPlan.data && (
+              <div
+                style={{ transform: `scale(${zoom / 100})` }}
+                className="shrink-0 rounded-sm bg-surface p-9 shadow-sheet transition-transform duration-[320ms] ease-settle"
+              >
+                <div className="relative">
+                  <img
+                    src={floorPlanDataUrl(floorPlan.data)}
+                    alt={`Floor plan for ${project.data.name}`}
+                    className="block max-h-[70vh] w-auto max-w-[740px] object-contain"
                   />
-                )}
+                  {(mapping.mapping || mapping.rooms.length > 0) && (
+                    <RoomMappingOverlay
+                      rooms={mapping.rooms}
+                      draft={mapping.draft}
+                      selectedId={mapping.selectedId}
+                      selectedPoint={mapping.selectedPoint}
+                      onPlaceClick={mapping.addPoint}
+                      onSelectRoom={mapping.selectRoom}
+                      onSelectPoint={mapping.setSelectedPoint}
+                      onMovePoint={mapping.movePoint}
+                      onInsertPoint={mapping.insertPoint}
+                      onRemovePoint={mapping.removePoint}
+                      onCommitPoints={mapping.commitPoints}
+                      onClose={mapping.closeDraft}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+          {view === "visualization" && visualization.count > 0 && !visualization.image && (
+            <p className="text-sm text-muted">Loading visualization…</p>
+          )}
+          {view === "visualization" && project.data && visualization.image && (
+            <img
+              src={visualizationDataUrl(visualization.image)}
+              alt={`Generated isometric visualization for ${project.data.name}`}
+              className="max-h-[76vh] max-w-[calc(100%-2rem)] rounded-[10px] border border-hairline bg-surface object-contain shadow-lifted"
+            />
           )}
         </main>
 
@@ -233,6 +257,11 @@ export function ApartmentEditor({
         >
           {mapping.mapping ? (
             <RoomMappingPanel mapping={mapping} />
+          ) : view === "visualization" ? (
+            <ApartmentGenerationPanel
+              roomCount={mapping.rooms.length}
+              visualization={visualization}
+            />
           ) : (
             <>
               <div className="flex flex-col gap-3.5 border-b border-hairline px-5 pt-[22px] pb-[18px]">
@@ -311,7 +340,11 @@ export function ApartmentEditor({
                 ) : (
                   <Button
                     variant={mapping.confirmed ? "secondary" : "primary"}
-                    onClick={mapping.confirmed ? mapping.reopenMapping : mapping.startMapping}
+                    onClick={() => {
+                      setView("floor-plan");
+                      if (mapping.confirmed) mapping.reopenMapping();
+                      else mapping.startMapping();
+                    }}
                     className="w-full py-[11px]"
                   >
                     {mapping.confirmed ? "Edit room mapping" : "Start mapping rooms"}

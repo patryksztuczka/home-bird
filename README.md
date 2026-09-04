@@ -40,7 +40,30 @@ pnpm db:migrate        # apply drizzle migrations
 pnpm dev               # start web + api in parallel
 ```
 
-Open http://localhost:5173 — the page shows live API status and a todo list backed by the api via tRPC.
+Open http://localhost:5173.
+
+### Local image generation
+
+Apartment visualizations use the Pi SDK with `pi-codex-image-gen`. Authenticate Pi as the same operating-system user that runs the API:
+
+```sh
+pi
+# Run /login, then choose ChatGPT Plus/Pro (Codex)
+```
+
+The API reads that user's existing `~/.pi/agent/auth.json`. It does not need an `OPENAI_API_KEY`. Generation is currently intended for local use only.
+
+Both visualization providers route image creation through `openai-codex/gpt-5.6-sol` and `gpt-image-2`. Choose the provider in `.env`:
+
+```sh
+# One Codex image request
+VISUALIZATION_PROVIDER_MODE=direct
+
+# Two GPT-5.6 Sol planning turns at medium reasoning, then image generation
+VISUALIZATION_PROVIDER_MODE=agent-loop
+```
+
+Restart the API after changing the mode. The direct provider is the default.
 
 ## Commands
 

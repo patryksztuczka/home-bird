@@ -3,6 +3,7 @@ packages:
   - packages/*
 
 allowBuilds:
+  "@google/genai": false
   cpu-features: true
   esbuild: true
   msgpackr-extract: true

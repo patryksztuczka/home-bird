@@ -115,6 +115,45 @@ export function SparkleIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function CheckIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden {...stroke} {...props}>
+      <circle cx="8" cy="8" r="6.4" stroke="currentColor" strokeWidth={1.4} />
+      <path d="m4.8 8.1 2 2 4.4-4.5" stroke="currentColor" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+export function BoxIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden {...stroke} {...props}>
+      <path
+        d="m8 1.8 5.5 3.1v6.2L8 14.2l-5.5-3.1V4.9L8 1.8Z"
+        stroke="currentColor"
+        strokeWidth={1.4}
+      />
+      <path d="m2.8 5.1 5.2 3 5.2-3M8 8.1v5.7" stroke="currentColor" strokeWidth={1.4} />
+    </svg>
+  );
+}
+
+export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden {...stroke} {...props}>
+      <path d="M13 5.7A5.4 5.4 0 1 0 13.2 10" stroke="currentColor" strokeWidth={1.5} />
+      <path d="M10.2 5.7H13V2.9" stroke="currentColor" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+export function LoaderIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden {...stroke} {...props}>
+      <path d="M13.2 8A5.2 5.2 0 1 1 8 2.8" stroke="currentColor" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
 export function InfoIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden {...stroke} {...props}>

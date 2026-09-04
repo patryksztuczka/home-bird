@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.4",
     "@home-bird/database": "workspace:*",
     "@home-bird/shared": "workspace:*",
     "@hono/node-server": "catalog:",
@@ -18,7 +19,9 @@
     "@trpc/server": "catalog:",
     "drizzle-orm": "catalog:",
     "effect": "catalog:",
-    "hono": "catalog:"
+    "hono": "catalog:",
+    "pi-codex-image-gen": "0.1.12",
+    "typebox": "1.3.25"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
