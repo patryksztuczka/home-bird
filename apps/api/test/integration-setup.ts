@@ -1,4 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -24,6 +26,7 @@ const applyMigrations = async (connectionString: string) => {
 };
 
 let container: StartedPostgreSqlContainer;
+let imageStorageDir: string;
 
 export const setup = async () => {
   container = await new PostgreSqlContainer("postgres:18-alpine").start();
@@ -31,8 +34,15 @@ export const setup = async () => {
   await applyMigrations(url);
   // Read by Config.string("DATABASE_URL") when the app runtime builds its layers.
   process.env.DATABASE_URL = url;
+
+  // Keep uploaded images inside a throwaway directory instead of the repo.
+  imageStorageDir = await mkdtemp(join(tmpdir(), "home-bird-images-"));
+  process.env.IMAGE_STORAGE_DIR = imageStorageDir;
 };
 
 export const teardown = async () => {
   await container?.stop();
+  if (imageStorageDir) {
+    await rm(imageStorageDir, { recursive: true, force: true });
+  }
 };

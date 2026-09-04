@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./apartment-project": "./src/apartment-project.ts",
     "./todo": "./src/todo.ts"
   },
   "scripts": {

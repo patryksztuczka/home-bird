@@ -6,3 +6,6 @@ dist/
 .vite/
 .vp/
 coverage/
+
+# Locally stored uploads (see IMAGE_STORAGE_DIR)
+.data/
