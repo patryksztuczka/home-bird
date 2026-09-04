@@ -7,6 +7,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -66,3 +67,37 @@ export const roomAreas = pgTable(
 
 export type RoomAreaRow = typeof roomAreas.$inferSelect;
 export type NewRoomAreaRow = typeof roomAreas.$inferInsert;
+
+/**
+ * One image the user attached to say what a component of the apartment should
+ * look like. A component holds exactly one reference — the unique index is what
+ * makes attaching over an existing one a replacement rather than a second image.
+ *
+ * The bytes live in image storage under `storageKey`; `sourceUrl` records where
+ * a linked image came from, and is null when the user picked a local file.
+ */
+export const apartmentReferences = pgTable(
+  "apartment_references",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    apartmentProjectId: uuid("apartment_project_id")
+      .notNull()
+      .references(() => apartmentProjects.id, { onDelete: "cascade" }),
+    component: text("component").notNull(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    sourceUrl: text("source_url"),
+    storageKey: text("storage_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("apartment_references_project_component_idx").on(
+      table.apartmentProjectId,
+      table.component,
+    ),
+  ],
+);
+
+export type ApartmentReferenceRow = typeof apartmentReferences.$inferSelect;
+export type NewApartmentReferenceRow = typeof apartmentReferences.$inferInsert;
