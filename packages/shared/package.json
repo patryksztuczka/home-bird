@@ -9,7 +9,8 @@
     "./room-reference": "./src/room-reference.ts",
     "./todo": "./src/todo.ts",
     "./apartment-reference": "./src/apartment-reference.ts",
-    "./image-file": "./src/image-file.ts"
+    "./image-file": "./src/image-file.ts",
+    "./apartment-visualization": "./src/apartment-visualization.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"

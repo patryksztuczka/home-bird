@@ -125,3 +125,40 @@ export const roomReferences = pgTable(
 
 export type RoomReferenceRow = typeof roomReferences.$inferSelect;
 export type NewRoomReferenceRow = typeof roomReferences.$inferInsert;
+
+/** One immutable attempt to generate an isometric view of an apartment project. */
+export const apartmentVisualizations = pgTable(
+  "apartment_visualizations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    apartmentProjectId: uuid("apartment_project_id")
+      .notNull()
+      .references(() => apartmentProjects.id, { onDelete: "cascade" }),
+    status: text("status").notNull(),
+    inputSnapshot: jsonb("input_snapshot")
+      .$type<{
+        floorPlan: { fileName: string; contentType: string };
+        rooms: Array<{
+          id: string;
+          roomType: string;
+          name: string;
+          boundary: Array<{ x: number; y: number }>;
+        }>;
+      }>()
+      .notNull(),
+    imageStorageKey: text("image_storage_key"),
+    imageContentType: text("image_content_type"),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("apartment_visualizations_project_created_idx").on(
+      table.apartmentProjectId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export type ApartmentVisualizationRow = typeof apartmentVisualizations.$inferSelect;
+export type NewApartmentVisualizationRow = typeof apartmentVisualizations.$inferInsert;

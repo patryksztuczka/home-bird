@@ -40,7 +40,18 @@ pnpm db:migrate        # apply drizzle migrations
 pnpm dev               # start web + api in parallel
 ```
 
-Open http://localhost:5173 — the page shows live API status and a todo list backed by the api via tRPC.
+Open http://localhost:5173.
+
+### Local image generation
+
+Apartment visualizations use the Pi SDK with `pi-codex-image-gen`. Authenticate Pi as the same operating-system user that runs the API:
+
+```sh
+pi
+# Run /login, then choose ChatGPT Plus/Pro (Codex)
+```
+
+The API reads that user's existing `~/.pi/agent/auth.json`. It does not need an `OPENAI_API_KEY`. Generation is currently intended for local use only.
 
 ## Commands
 

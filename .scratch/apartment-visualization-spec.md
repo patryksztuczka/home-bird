@@ -14,12 +14,9 @@ The product centers on an apartment project. The user uploads a required floor p
 
 Apartment-wide references act as defaults. A room-specific reference for the same component overrides the apartment reference. Component references should be followed closely. An overall-style reference provides general inspiration instead.
 
-After mapping the complete apartment, the user can generate either:
+The user can generate an isometric visualization of the whole apartment as soon as a floor plan exists. Room mapping is optional guidance for apartment generation. Generating one selected room from a chosen perspective still requires that room area to be mapped.
 
-- An isometric visualization of the whole apartment
-- A visualization of one selected room from a chosen perspective
-
-References are optional once all areas have been mapped. Rooms without references appear empty, with plain white walls and neutral floors. The application does not judge whether the user's choices match. It visualizes the requested combination.
+References are optional. Rooms without references appear empty, with plain white walls and neutral floors. The application does not judge whether the user's choices match. It visualizes the requested combination.
 
 The user can refine a generated image with a general comment or a comment attached to a selected image region. Each regeneration creates a new version and preserves previous versions.
 
@@ -34,8 +31,8 @@ The primary editing experience targets desktop web. The floor plan remains the c
 5. As a user, I want to draw an area around every room, so that I control how the floor plan is divided.
 6. As a user, I want to add, move, and remove boundary points, so that I can correct a room outline.
 7. As a user, I want the editor to prevent invalid room polygons, so that generation does not receive unusable geometry.
-8. As a user, I want to see which areas remain unmapped, so that I know why the apartment is not ready for generation.
-9. As a user, I want every interior area to be mapped before generating the apartment, so that no part of the floor plan is left ambiguous.
+8. As a user, I want to see which areas remain unmapped, so that I know how much mapping work remains.
+9. As a user, I want to generate an apartment visualization without mapping rooms first, so that the floor plan alone is enough to begin.
 10. As a user, I want to choose a predefined room type, so that the generator knows whether an area is a kitchen, bathroom, bedroom, or another kind of room.
 11. As a user, I want to give a room an optional custom name, so that I can distinguish rooms of the same type.
 12. As a user, I want to select a room directly on the floor plan, so that I can edit its references without searching through a long form.
@@ -55,7 +52,7 @@ The primary editing experience targets desktop web. The floor plan remains the c
 26. As a user, I want a room-specific component reference to override the apartment default, so that spaces such as bathrooms can use different materials.
 27. As a user, I want component references to be followed closely, so that a flooring image means the generated floor should resemble that image.
 28. As a user, I want overall-style references to guide the general appearance rather than represent one literal object, so that the generator can apply the style throughout the requested scope.
-29. As a user, I want to generate after mapping all areas even if I have not attached references, so that I can begin with an empty apartment.
+29. As a user, I want to generate without room mapping or references, so that I can begin with an empty apartment immediately after uploading a floor plan.
 30. As a user, I want rooms without references to appear empty with white walls and neutral floors, so that the application does not invent a design I did not request.
 31. As a user, I want to generate an isometric image of the whole apartment, so that I can see how the property looks as one composition.
 32. As a user, I want the isometric visualization to appear only after I request generation, so that the setup screen remains focused on the floor plan.
@@ -83,13 +80,13 @@ The primary editing experience targets desktop web. The floor plan remains the c
 - The primary client is a desktop web application.
 - The floor plan editor is the center of the project workspace. A side panel displays fields for either the whole apartment or the selected room.
 - Users manually draw polygonal room areas. Automatic room detection is not part of this version.
-- Every interior area must be mapped and named before apartment or room generation is enabled.
+- Apartment generation requires only the floor plan. A room must be mapped before generating that room by itself.
 - A room has a predefined type and may have a custom display name.
 - The initial project view contains the floor plan and its annotations. The product does not create a live 3D shell during editing.
 - The whole-apartment output is an AI-generated isometric image, not an editable 3D model.
 - Room outputs are AI-generated images. The user may choose a supported viewpoint or let the application choose one.
 - The generation promise is spatial plausibility. The product should preserve the floor-plan shape, room arrangement, doors, and windows where the model can infer them. It does not promise dimensional accuracy, stable geometry across every generation, or buildable results.
-- The user can generate as soon as every floor-plan area has been mapped. Reference fields remain optional.
+- The user can generate an apartment as soon as its floor plan exists. Room mapping and reference fields remain optional.
 - A room without references is requested as an empty room with plain white walls and a neutral floor. The generator should not add furniture to an unspecified room.
 - Common reference components are Overall style, Floor, Walls, Ceiling, Doors, Windows, and Lighting.
 - Optional room-specific components include Furniture, Cabinets, Countertops, Appliances, Bathroom fixtures, and Other.
@@ -100,7 +97,7 @@ The primary editing experience targets desktop web. The floor plan remains the c
 - Supported reference inputs are local file upload, direct image URL, and social-post URL.
 - Social-post extraction is best-effort. If extraction fails because the source blocks access, the interface asks the user to upload a screenshot.
 - The system must retain the original source URL when applicable and store or proxy an image that the generation process can access reliably.
-- Generation accepts a snapshot of the floor plan, room polygons, room metadata, resolved apartment and room references, output type, and optional viewpoint.
+- Generation accepts a snapshot of the floor plan, any available room polygons and metadata, resolved references, output type, and optional viewpoint.
 - Apartment generation resolves references for every room before preparing the model input. Room generation resolves only apartment defaults and overrides for the selected room.
 - Generation must not silently decorate components or rooms that have no references. Prompts and provider adapters must encode the agreed empty and neutral defaults.
 - The visualization provider must sit behind an application-level interface. Product behavior must not depend directly on one model vendor's request or response format.
@@ -119,8 +116,8 @@ The primary editing experience targets desktop web. The floor plan remains the c
 - Tests should assert externally visible behavior. They should not inspect React component state, Effect implementation details, prompt string formatting, or database query structure.
 - The primary test seam is a browser-level apartment-project journey running against the real application API and database with deterministic fakes for image extraction, image storage, and visualization generation. This is the highest seam that can verify floor-plan editing, scoped references, generation requests, comments, and version history together.
 - The main browser journey should upload a floor plan, map every room, assign apartment and room references, verify room overrides, generate an apartment image, generate a room image from a chosen viewpoint, request a localized revision, and confirm that both visualization versions remain available.
-- Browser coverage should verify that generation remains disabled until every interior area has a valid polygon and room type.
-- Browser coverage should verify that references remain optional after mapping is complete.
+- Browser coverage should verify that apartment generation is available before any room area is mapped.
+- Browser coverage should verify that references remain optional with or without room mapping.
 - Browser coverage should verify that selecting the whole apartment or a room changes the visible reference scope.
 - Browser coverage should verify that adding a second image to the same component and scope replaces the first image.
 - Browser coverage should verify the screenshot fallback when a social-post image cannot be extracted.
@@ -160,7 +157,7 @@ The primary editing experience targets desktop web. The floor plan remains the c
 - "Apartment project" is the aggregate that holds one floor plan, mapped rooms, scoped references, and generated visualizations.
 - "Room area" is a user-drawn polygon on the floor plan with a room type and optional custom name.
 - "Reference" is one image assigned to a component and either the whole apartment or one room.
-- "Apartment visualization" is an AI-generated isometric image of the mapped property.
+- "Apartment visualization" is an AI-generated isometric image based on the floor plan and any available room mapping.
 - "Room visualization" is an AI-generated image of one mapped room from a selected or automatic viewpoint.
 - "Visualization version" is an immutable generation result. A revision produces another version.
 - The phrase "everything matches" means that the user can see the selected references combined in one image. It does not mean the application judges the design.
