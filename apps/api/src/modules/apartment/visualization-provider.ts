@@ -11,7 +11,7 @@ import {
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import type { BoundaryPoint, RoomType } from "@home-bird/shared/room-area";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Config, Context, Effect, Layer, Schema } from "effect";
 
 export interface ApartmentVisualizationRequest {
   readonly floorPlan: {
@@ -69,9 +69,104 @@ Use restrained, realistic architectural-model rendering and soft neutral dayligh
 const packageEntry = fileURLToPath(import.meta.resolve("pi-codex-image-gen"));
 const packageExtension = join(dirname(dirname(packageEntry)), "index.ts");
 
+const CODEX_MODEL = "gpt-5.6-sol";
+
+type PiSession = Awaited<ReturnType<typeof createAgentSession>>["session"];
+type ImageTool = PiSession["agent"]["state"]["tools"][number];
+
+const imageFromToolResult = (result: {
+  readonly content?: ReadonlyArray<
+    | { readonly type: "text"; readonly text: string }
+    | { readonly type: "image"; readonly data: string; readonly mimeType: string }
+  >;
+}): GeneratedVisualization | undefined => {
+  const image = result.content?.find((content) => content.type === "image");
+  return image?.type === "image"
+    ? {
+        bytes: new Uint8Array(Buffer.from(image.data, "base64")),
+        contentType: image.mimeType,
+      }
+    : undefined;
+};
+
+const withPiSession = async <A>(
+  request: ApartmentVisualizationRequest,
+  agentLoop: boolean,
+  use: (session: PiSession, imageTool: ImageTool, floorPlanPath: string) => Promise<A>,
+): Promise<A> => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), "home-bird-visualization-"));
+  try {
+    const extension =
+      request.floorPlan.contentType === "image/jpeg"
+        ? "jpg"
+        : request.floorPlan.contentType === "image/webp"
+          ? "webp"
+          : "png";
+    const floorPlanPath = join(temporaryDirectory, `floor-plan.${extension}`);
+    await writeFile(floorPlanPath, request.floorPlan.bytes);
+
+    const cwd = process.cwd();
+    const settingsManager = SettingsManager.inMemory();
+    const resourceLoader = new DefaultResourceLoader({
+      cwd,
+      agentDir: getAgentDir(),
+      settingsManager,
+      additionalExtensionPaths: [packageExtension],
+      noExtensions: true,
+      noSkills: true,
+      noPromptTemplates: true,
+      noThemes: true,
+      noContextFiles: true,
+    });
+    await resourceLoader.reload();
+    const modelRuntime = await ModelRuntime.create();
+    const model = agentLoop ? modelRuntime.getModel("openai-codex", CODEX_MODEL) : undefined;
+    if (agentLoop && model === undefined) {
+      throw new Error(`${CODEX_MODEL} is unavailable from the openai-codex provider`);
+    }
+    const { session } = await createAgentSession({
+      cwd,
+      tools: ["codex_generate_image"],
+      modelRuntime,
+      resourceLoader,
+      settingsManager,
+      sessionManager: SessionManager.inMemory(cwd),
+      ...(model === undefined ? {} : { model, thinkingLevel: "medium" as const }),
+    });
+
+    try {
+      const imageTool = session.agent.state.tools.find(
+        (candidate) => candidate.name === "codex_generate_image",
+      );
+      if (imageTool === undefined) {
+        throw new Error("pi-codex-image-gen did not register codex_generate_image");
+      }
+      return await use(session, imageTool, floorPlanPath);
+    } finally {
+      session.dispose();
+    }
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+};
+
+const providerEffect = (
+  name: string,
+  generate: (request: ApartmentVisualizationRequest) => Promise<GeneratedVisualization>,
+) =>
+  Effect.fn(name)((request: ApartmentVisualizationRequest) =>
+    Effect.tryPromise({
+      try: () => generate(request),
+      catch: (error) =>
+        new VisualizationProviderFailure({
+          message: error instanceof Error ? error.message : String(error),
+        }),
+    }),
+  );
+
 /**
  * Generates images through the pi SDK and the pi-codex-image-gen extension.
- * The extension reads the server user's existing ~/.pi openai-codex login.
+ * Both implementations read the server user's existing ~/.pi openai-codex login.
  */
 export class VisualizationProvider extends Context.Service<
   VisualizationProvider,
@@ -81,78 +176,96 @@ export class VisualizationProvider extends Context.Service<
     ) => Effect.Effect<GeneratedVisualization, VisualizationProviderFailure>;
   }
 >()("@home-bird/VisualizationProvider") {
-  static readonly layer = Layer.succeed(VisualizationProvider, {
-    generateApartment: Effect.fn("VisualizationProvider.generateApartment")((request) =>
-      Effect.tryPromise({
-        try: async () => {
-          const temporaryDirectory = await mkdtemp(join(tmpdir(), "home-bird-visualization-"));
-          try {
-            const extension =
-              request.floorPlan.contentType === "image/jpeg"
-                ? "jpg"
-                : request.floorPlan.contentType === "image/webp"
-                  ? "webp"
-                  : "png";
-            const floorPlanPath = join(temporaryDirectory, `floor-plan.${extension}`);
-            await writeFile(floorPlanPath, request.floorPlan.bytes);
-
-            const cwd = process.cwd();
-            const settingsManager = SettingsManager.inMemory();
-            const resourceLoader = new DefaultResourceLoader({
-              cwd,
-              agentDir: getAgentDir(),
-              settingsManager,
-              additionalExtensionPaths: [packageExtension],
-              noExtensions: true,
-              noSkills: true,
-              noPromptTemplates: true,
-              noThemes: true,
-              noContextFiles: true,
-            });
-            await resourceLoader.reload();
-            const modelRuntime = await ModelRuntime.create();
-            const { session } = await createAgentSession({
-              cwd,
-              tools: ["codex_generate_image"],
-              modelRuntime,
-              resourceLoader,
-              settingsManager,
-              sessionManager: SessionManager.inMemory(cwd),
-            });
-
-            try {
-              const tool = session.agent.state.tools.find(
-                (candidate) => candidate.name === "codex_generate_image",
-              );
-              if (tool === undefined) {
-                throw new Error("pi-codex-image-gen did not register codex_generate_image");
-              }
-              const result = await tool.execute(crypto.randomUUID(), {
-                prompt: apartmentVisualizationPrompt(request),
-                outputFormat: "png",
-                save: "none",
-                referencedImagePaths: [floorPlanPath],
-              });
-              const image = result.content.find((content) => content.type === "image");
-              if (image === undefined) {
-                throw new Error("The visualization provider did not return an image");
-              }
-              return {
-                bytes: new Uint8Array(Buffer.from(image.data, "base64")),
-                contentType: image.mimeType,
-              };
-            } finally {
-              session.dispose();
-            }
-          } finally {
-            await rm(temporaryDirectory, { recursive: true, force: true });
-          }
-        },
-        catch: (error) =>
-          new VisualizationProviderFailure({
-            message: error instanceof Error ? error.message : String(error),
-          }),
+  /** One Codex Responses request followed by one gpt-image-2 call. */
+  static readonly directLayer = Layer.succeed(VisualizationProvider, {
+    generateApartment: providerEffect("VisualizationProvider.direct.generateApartment", (request) =>
+      withPiSession(request, false, async (_session, imageTool, floorPlanPath) => {
+        const result = await imageTool.execute(crypto.randomUUID(), {
+          prompt: apartmentVisualizationPrompt(request),
+          model: CODEX_MODEL,
+          outputFormat: "png",
+          save: "none",
+          referencedImagePaths: [floorPlanPath],
+        });
+        const image = imageFromToolResult(result);
+        if (image === undefined) {
+          throw new Error("The visualization provider did not return an image");
+        }
+        return image;
       }),
     ),
   });
+
+  /** Two planning prompts at medium reasoning, then one gpt-image-2 call. */
+  static readonly agentLoopLayer = Layer.succeed(VisualizationProvider, {
+    generateApartment: providerEffect(
+      "VisualizationProvider.agentLoop.generateApartment",
+      (request) =>
+        withPiSession(request, true, async (session, imageTool, floorPlanPath) => {
+          session.agent.state.tools = [];
+          await session.prompt(
+            `Study the attached floor plan as an architect preparing an image-generation brief. Distinguish structural walls, doors, and exterior windows from furniture, plumbing fixtures, symbols, hatching, dimensions, and labels. Work out the footprint, room adjacency, openings, and the exact unrotated isometric composition. Return a concise technical brief only. Do not generate an image yet.\n\nAvailable mapped-room guidance:\n${JSON.stringify(request.rooms, null, 2)}`,
+            {
+              images: [
+                {
+                  type: "image",
+                  data: Buffer.from(request.floorPlan.bytes).toString("base64"),
+                  mimeType: request.floorPlan.contentType,
+                },
+              ],
+            },
+          );
+
+          const forcedModelTool: ImageTool = {
+            ...imageTool,
+            execute: (toolCallId, params, signal, onUpdate) =>
+              imageTool.execute(
+                toolCallId,
+                { ...(params as Record<string, unknown>), model: CODEX_MODEL },
+                signal,
+                onUpdate,
+              ),
+          };
+          session.agent.state.tools = [forcedModelTool];
+
+          let generated: GeneratedVisualization | undefined;
+          const unsubscribe = session.subscribe((event) => {
+            if (
+              event.type === "tool_execution_end" &&
+              event.toolName === "codex_generate_image" &&
+              !event.isError
+            ) {
+              generated = imageFromToolResult(event.result);
+            }
+          });
+          try {
+            await session.prompt(
+              `Critique your technical brief against the output contract below. Correct any interpretation that would create furniture, fixtures, camera roll, perspective distortion, misplaced openings, or warped walls. Then call codex_generate_image exactly once. Pass the attached floor plan at ${floorPlanPath} as referencedImagePaths, use PNG, save none, and use ${CODEX_MODEL}. Do not stop with a text-only answer.\n\nOUTPUT CONTRACT:\n${apartmentVisualizationPrompt(request)}`,
+            );
+          } finally {
+            unsubscribe();
+          }
+
+          if (generated === undefined) {
+            throw new Error(
+              session.agent.state.errorMessage ??
+                "The agent loop finished without generating an image",
+            );
+          }
+          return generated;
+        }),
+    ),
+  });
+
+  /** Select with VISUALIZATION_PROVIDER_MODE=direct|agent-loop. */
+  static readonly layer = Layer.unwrap(
+    Config.literals(["direct", "agent-loop"], "VISUALIZATION_PROVIDER_MODE").pipe(
+      Config.withDefault("direct"),
+      Effect.map((mode) =>
+        mode === "agent-loop"
+          ? VisualizationProvider.agentLoopLayer
+          : VisualizationProvider.directLayer,
+      ),
+    ),
+  );
 }

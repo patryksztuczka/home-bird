@@ -53,6 +53,18 @@ pi
 
 The API reads that user's existing `~/.pi/agent/auth.json`. It does not need an `OPENAI_API_KEY`. Generation is currently intended for local use only.
 
+Both visualization providers route image creation through `openai-codex/gpt-5.6-sol` and `gpt-image-2`. Choose the provider in `.env`:
+
+```sh
+# One Codex image request
+VISUALIZATION_PROVIDER_MODE=direct
+
+# Two GPT-5.6 Sol planning turns at medium reasoning, then image generation
+VISUALIZATION_PROVIDER_MODE=agent-loop
+```
+
+Restart the API after changing the mode. The direct provider is the default.
+
 ## Commands
 
 | Command            | What it does                                      |
