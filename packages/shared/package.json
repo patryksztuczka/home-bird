@@ -6,6 +6,7 @@
     ".": "./src/index.ts",
     "./apartment-project": "./src/apartment-project.ts",
     "./room-area": "./src/room-area.ts",
+    "./room-reference": "./src/room-reference.ts",
     "./todo": "./src/todo.ts",
     "./apartment-reference": "./src/apartment-reference.ts",
     "./image-file": "./src/image-file.ts"

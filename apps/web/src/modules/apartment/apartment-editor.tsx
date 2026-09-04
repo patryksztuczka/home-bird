@@ -1,4 +1,5 @@
 import { referenceComponentLabels } from "@home-bird/shared/apartment-reference";
+import { roomReferenceComponentLabels } from "@home-bird/shared/room-reference";
 import { floorPlanDataUrl } from "@home-bird/shared/apartment-project";
 import { Button } from "@home-bird/ui";
 import { useQuery } from "@tanstack/react-query";
@@ -10,7 +11,9 @@ import { ChevronLeft, InfoIcon, MinusIcon, PlanIcon, PlusIcon, SparkleIcon } fro
 import { useApartmentReferences } from "./use-apartment-references";
 import { RoomMappingOverlay } from "./room-mapping-overlay";
 import { RoomMappingPanel } from "./room-mapping-panel";
-import { useRoomMapping } from "./use-room-mapping";
+import { RoomReferencePanel } from "./room-reference-panel";
+import { useRoomMapping, roomLabel } from "./use-room-mapping";
+import { useRoomReferences } from "./use-room-references";
 
 const zoomSteps = [50, 75, 100, 125, 150, 200];
 
@@ -37,6 +40,9 @@ export function ApartmentEditor({
   const [zoom, setZoom] = useState(100);
   const mapping = useRoomMapping(projectId);
   const references = useApartmentReferences(projectId);
+  const selectedRoom = mapping.rooms.find((room) => room.id === mapping.selectedId);
+  const selectedRoomLabel = selectedRoom === undefined ? "" : roomLabel(selectedRoom);
+  const roomReferences = useRoomReferences(selectedRoom?.id, selectedRoomLabel);
 
   const stepZoom = (direction: -1 | 1) => {
     const index = zoomSteps.indexOf(zoom);
@@ -95,7 +101,14 @@ export function ApartmentEditor({
 
   return (
     <div className="flex h-screen flex-col bg-canvas">
-      <AttachReferenceDialog key={references.draft?.component ?? "none"} references={references} />
+      <AttachReferenceDialog
+        key={
+          roomReferences.draft
+            ? `room-${roomReferences.roomAreaId}-${roomReferences.draft.component}`
+            : (references.draft?.component ?? "none")
+        }
+        references={roomReferences.draft ? roomReferences : references}
+      />
       <header className="flex h-15 shrink-0 items-center gap-4 border-b border-hairline bg-surface pr-5 pl-6">
         <button
           type="button"
@@ -223,41 +236,87 @@ export function ApartmentEditor({
           ) : (
             <>
               <div className="flex flex-col gap-3.5 border-b border-hairline px-5 pt-[22px] pb-[18px]">
-                <span className={"text-label font-semibold tracking-[0.08em] text-muted uppercase"}>
+                <span className="text-label font-semibold tracking-[0.08em] text-muted uppercase">
                   Applying to
                 </span>
-                <div className="flex items-center gap-3 rounded-[11px] border border-accent-edge bg-accent-wash px-3.5 py-3">
-                  <span className="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-accent text-white">
-                    <PlanIcon />
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-[15px] font-semibold text-ink">Whole apartment</span>
-                    <span className="text-[12.5px] text-accent-ink">Defaults for every room</span>
-                  </span>
-                </div>
-                <p className="text-meta leading-[1.5] text-muted">
-                  These references apply to every room unless a room overrides them.
-                </p>
+                {selectedRoom ? (
+                  <>
+                    <div className="flex rounded-lg border border-hairline bg-surface-sunk p-1 text-meta font-semibold">
+                      <button
+                        type="button"
+                        onClick={mapping.clearSelection}
+                        className="flex-1 rounded-md px-2 py-2 text-muted hover:text-ink"
+                      >
+                        Whole apartment
+                      </button>
+                      <span className="flex-1 rounded-md bg-surface px-2 py-2 text-center text-accent shadow-sm">
+                        Single room
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-[11px] border border-accent-edge bg-accent-wash px-3.5 py-3">
+                      <span className="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-accent text-white">
+                        <PlanIcon />
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="text-[15px] font-semibold text-ink">
+                          {selectedRoomLabel}
+                        </span>
+                        <span className="text-[12.5px] text-accent-ink">Room-only references</span>
+                      </span>
+                    </div>
+                    <p className="text-meta leading-[1.5] text-muted">
+                      {selectedRoomLabel} references apply only here. Apartment references fill any
+                      gaps.
+                    </p>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-3 rounded-[11px] border border-accent-edge bg-accent-wash px-3.5 py-3">
+                    <span className="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-accent text-white">
+                      <PlanIcon />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="text-[15px] font-semibold text-ink">Whole apartment</span>
+                      <span className="text-[12.5px] text-accent-ink">Defaults for every room</span>
+                    </span>
+                  </div>
+                )}
+                {!selectedRoom && (
+                  <p className="text-meta leading-[1.5] text-muted">
+                    These references apply to every room unless a room overrides them.
+                  </p>
+                )}
               </div>
 
-              <ApartmentReferencePanel references={references} />
+              {selectedRoom ? (
+                <RoomReferencePanel references={roomReferences} />
+              ) : (
+                <ApartmentReferencePanel references={references} />
+              )}
 
               <div className="flex flex-col gap-3 border-t border-hairline bg-surface-sunk px-5 pt-[18px] pb-5">
                 <div className="flex items-start gap-2.5">
                   <InfoIcon className="mt-0.5 shrink-0 text-muted" />
                   <p className="flex-1 text-meta leading-[1.5] text-muted">
-                    {references.justRemoved
-                      ? `${referenceComponentLabels[references.justRemoved]} reference removed. Every other reference is unchanged.`
-                      : "Add a local image or a direct image link. Each component holds one reference."}
+                    {selectedRoom && roomReferences.justRemoved
+                      ? `${roomReferenceComponentLabels[roomReferences.justRemoved]} override removed. The apartment default is active here again.`
+                      : !selectedRoom && references.justRemoved
+                        ? `${referenceComponentLabels[references.justRemoved]} reference removed. Every other reference is unchanged.`
+                        : "Add a local image or a direct image link. Each component holds one reference."}
                   </p>
                 </div>
-                <Button
-                  variant={mapping.confirmed ? "secondary" : "primary"}
-                  onClick={mapping.confirmed ? mapping.reopenMapping : mapping.startMapping}
-                  className="w-full py-[11px]"
-                >
-                  {mapping.confirmed ? "Edit room mapping" : "Start mapping rooms"}
-                </Button>
+                {selectedRoom ? (
+                  <Button onClick={mapping.clearSelection} className="w-full py-[11px]">
+                    Done with {selectedRoomLabel}
+                  </Button>
+                ) : (
+                  <Button
+                    variant={mapping.confirmed ? "secondary" : "primary"}
+                    onClick={mapping.confirmed ? mapping.reopenMapping : mapping.startMapping}
+                    className="w-full py-[11px]"
+                  >
+                    {mapping.confirmed ? "Edit room mapping" : "Start mapping rooms"}
+                  </Button>
+                )}
               </div>
             </>
           )}
