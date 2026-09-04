@@ -1,9 +1,12 @@
 import { floorPlanDataUrl } from "@home-bird/shared/apartment-project";
 import { Button } from "@home-bird/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTRPC } from "../../lib/trpc";
 import { ChevronLeft, InfoIcon, MinusIcon, PlanIcon, PlusIcon, SparkleIcon } from "./icons";
+import { RoomMappingOverlay } from "./room-mapping-overlay";
+import { RoomMappingPanel } from "./room-mapping-panel";
+import { useRoomMapping } from "./use-room-mapping";
 
 /** The apartment-wide components every scope offers. Room-only fields come later. */
 const commonComponents = [
@@ -39,12 +42,62 @@ export function ApartmentEditor({
     ),
   );
   const [zoom, setZoom] = useState(100);
+  const mapping = useRoomMapping(projectId);
 
   const stepZoom = (direction: -1 | 1) => {
     const index = zoomSteps.indexOf(zoom);
     const next = zoomSteps[Math.min(zoomSteps.length - 1, Math.max(0, index + direction))];
     setZoom(next ?? 100);
   };
+
+  // Drawing is a keyboard-and-mouse job: the shortcuts are on the window so they
+  // work wherever the pointer is over the plan.
+  useEffect(() => {
+    if (!mapping.mapping) return;
+    const handle = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+
+      if (event.key === "Escape") {
+        if (mapping.draft === undefined) mapping.clearSelection();
+        else mapping.discardDraft();
+        return;
+      }
+      if (event.key === "Enter" && mapping.draft?.kind === "drawing") {
+        event.preventDefault();
+        mapping.closeDraft();
+        return;
+      }
+      if (event.key === "Backspace" || event.key === "Delete") {
+        if (mapping.draft?.kind === "drawing") {
+          event.preventDefault();
+          mapping.undoPoint();
+        } else if (mapping.selectedPoint !== undefined) {
+          event.preventDefault();
+          mapping.removePoint(mapping.selectedPoint);
+        }
+      }
+    };
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  }, [mapping]);
+
+  const status = mapping.confirmed
+    ? { text: "Mapping complete", tone: "accent" as const }
+    : mapping.mapping
+      ? {
+          text: `${mapping.rooms.length} mapped${
+            mapping.draft?.kind === "drawing"
+              ? " · drawing"
+              : mapping.draft?.kind === "naming"
+                ? " · 1 unsaved"
+                : ""
+          }`,
+          tone: "accent" as const,
+        }
+      : mapping.rooms.length === 0
+        ? { text: "No rooms mapped yet", tone: "muted" as const }
+        : { text: `${mapping.rooms.length} mapped · not confirmed`, tone: "muted" as const };
 
   return (
     <div className="flex h-screen flex-col bg-canvas">
@@ -67,9 +120,21 @@ export function ApartmentEditor({
           )}
         </div>
 
-        <span className="flex items-center gap-[7px] rounded-full border border-hairline bg-surface-sunk py-[5px] pr-[11px] pl-[9px]">
-          <span className="size-1.5 shrink-0 rounded-full bg-muted" />
-          <span className="text-label font-medium text-muted">No rooms mapped yet</span>
+        <span
+          className={`flex items-center gap-[7px] rounded-full border py-[5px] pr-[11px] pl-[9px] ${
+            status.tone === "accent"
+              ? "border-accent-edge bg-accent-wash"
+              : "border-hairline bg-surface-sunk"
+          }`}
+        >
+          <span
+            className={`size-1.5 shrink-0 rounded-full ${status.tone === "accent" ? "bg-accent" : "bg-muted"}`}
+          />
+          <span
+            className={`text-label font-medium ${status.tone === "accent" ? "text-accent" : "text-muted"}`}
+          >
+            {status.text}
+          </span>
         </span>
 
         <div className="ml-auto flex items-center gap-2.5">
@@ -98,9 +163,9 @@ export function ApartmentEditor({
           </div>
 
           <Button
-            variant="quiet"
-            disabled
-            title="Map every room before generating"
+            variant={mapping.confirmed ? "primary" : "quiet"}
+            disabled={!mapping.confirmed}
+            title={mapping.confirmed ? undefined : "Map every room before generating"}
             className="text-sm"
           >
             <SparkleIcon />
@@ -127,11 +192,29 @@ export function ApartmentEditor({
               style={{ transform: `scale(${zoom / 100})` }}
               className="shrink-0 rounded-sm bg-surface p-9 shadow-sheet transition-transform duration-[320ms] ease-settle"
             >
-              <img
-                src={floorPlanDataUrl(floorPlan.data)}
-                alt={`Floor plan for ${project.data.name}`}
-                className="block max-h-[70vh] w-auto max-w-[740px] object-contain"
-              />
+              <div className="relative">
+                <img
+                  src={floorPlanDataUrl(floorPlan.data)}
+                  alt={`Floor plan for ${project.data.name}`}
+                  className="block max-h-[70vh] w-auto max-w-[740px] object-contain"
+                />
+                {(mapping.mapping || mapping.rooms.length > 0) && (
+                  <RoomMappingOverlay
+                    rooms={mapping.rooms}
+                    draft={mapping.draft}
+                    selectedId={mapping.selectedId}
+                    selectedPoint={mapping.selectedPoint}
+                    onPlaceClick={mapping.addPoint}
+                    onSelectRoom={mapping.selectRoom}
+                    onSelectPoint={mapping.setSelectedPoint}
+                    onMovePoint={mapping.movePoint}
+                    onInsertPoint={mapping.insertPoint}
+                    onRemovePoint={mapping.removePoint}
+                    onCommitPoints={mapping.commitPoints}
+                    onClose={mapping.closeDraft}
+                  />
+                )}
+              </div>
             </div>
           )}
         </main>
@@ -140,60 +223,71 @@ export function ApartmentEditor({
           aria-label="Project controls"
           className="flex w-[340px] shrink-0 flex-col border-l border-hairline bg-surface"
         >
-          <div className="flex flex-col gap-3.5 border-b border-hairline px-5 pt-[22px] pb-[18px]">
-            <span className="text-label font-semibold tracking-[0.08em] text-muted uppercase">
-              Applying to
-            </span>
-            <div className="flex items-center gap-3 rounded-[11px] border border-accent-edge bg-accent-wash px-3.5 py-3">
-              <span className="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-accent text-white">
-                <PlanIcon />
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-[15px] font-semibold text-ink">Whole apartment</span>
-                <span className="text-[12.5px] text-accent-ink">Defaults for every room</span>
-              </span>
-            </div>
-          </div>
+          {mapping.mapping ? (
+            <RoomMappingPanel mapping={mapping} />
+          ) : (
+            <>
+              <div className="flex flex-col gap-3.5 border-b border-hairline px-5 pt-[22px] pb-[18px]">
+                <span className={"text-label font-semibold tracking-[0.08em] text-muted uppercase"}>
+                  Applying to
+                </span>
+                <div className="flex items-center gap-3 rounded-[11px] border border-accent-edge bg-accent-wash px-3.5 py-3">
+                  <span className="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-accent text-white">
+                    <PlanIcon />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-[15px] font-semibold text-ink">Whole apartment</span>
+                    <span className="text-[12.5px] text-accent-ink">Defaults for every room</span>
+                  </span>
+                </div>
+              </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-0.5 px-5 pt-5">
-            <div className="flex items-baseline gap-2 pb-3">
-              <h2 className="text-label font-semibold tracking-[0.08em] text-ink uppercase">
-                References
-              </h2>
-              <span className="text-label text-muted">not available yet</span>
-            </div>
+              <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-5 pt-5">
+                <div className="flex items-baseline gap-2 pb-3">
+                  <h2 className="text-label font-semibold tracking-[0.08em] text-ink uppercase">
+                    References
+                  </h2>
+                  <span className="text-label text-muted">not available yet</span>
+                </div>
 
-            <ul className="flex flex-col">
-              {commonComponents.map((component) => (
-                <li
-                  key={component}
-                  className="flex items-center gap-3 px-1 py-[9px] opacity-55"
-                  aria-disabled
+                <ul className="flex flex-col">
+                  {commonComponents.map((component) => (
+                    <li
+                      key={component}
+                      className="flex items-center gap-3 px-1 py-[9px] opacity-55"
+                      aria-disabled
+                    >
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-hairline-strong bg-surface-sunk text-muted">
+                        <PlusIcon />
+                      </span>
+                      <span className="min-w-0 flex-1 text-[14.5px] font-medium text-ink">
+                        {component}
+                      </span>
+                      <span className="w-13 shrink-0 text-right text-meta text-muted">Add</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-hairline bg-surface-sunk px-5 pt-[18px] pb-5">
+                <div className="flex items-start gap-2.5">
+                  <InfoIcon className="mt-0.5 shrink-0 text-muted" />
+                  <p className="flex-1 text-meta leading-[1.5] text-muted">
+                    {mapping.confirmed
+                      ? `${mapping.rooms.length} room${mapping.rooms.length === 1 ? "" : "s"} mapped. References are still to come — the plan is ready for them.`
+                      : "Attaching references is still to come. Map the interior first: it is what unlocks generation."}
+                  </p>
+                </div>
+                <Button
+                  variant={mapping.confirmed ? "secondary" : "primary"}
+                  onClick={mapping.confirmed ? mapping.reopenMapping : mapping.startMapping}
+                  className="w-full py-[11px]"
                 >
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-hairline-strong bg-surface-sunk text-muted">
-                    <PlusIcon />
-                  </span>
-                  <span className="min-w-0 flex-1 text-[14.5px] font-medium text-ink">
-                    {component}
-                  </span>
-                  <span className="w-13 shrink-0 text-right text-meta text-muted">Add</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="flex flex-col gap-3 border-t border-hairline bg-surface-sunk px-5 pt-[18px] pb-5">
-            <div className="flex items-start gap-2.5">
-              <InfoIcon className="mt-0.5 shrink-0 text-muted" />
-              <p className="flex-1 text-meta leading-[1.5] text-muted">
-                Drawing room areas and attaching references are still to come. Your floor plan is
-                saved and will be waiting.
-              </p>
-            </div>
-            <Button disabled className="w-full">
-              Start mapping rooms
-            </Button>
-          </div>
+                  {mapping.confirmed ? "Edit room mapping" : "Start mapping rooms"}
+                </Button>
+              </div>
+            </>
+          )}
         </aside>
       </div>
     </div>
