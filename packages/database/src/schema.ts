@@ -101,3 +101,27 @@ export const apartmentReferences = pgTable(
 
 export type ApartmentReferenceRow = typeof apartmentReferences.$inferSelect;
 export type NewApartmentReferenceRow = typeof apartmentReferences.$inferInsert;
+
+/** One component reference attached to one room area. */
+export const roomReferences = pgTable(
+  "room_references",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    roomAreaId: uuid("room_area_id")
+      .notNull()
+      .references(() => roomAreas.id, { onDelete: "cascade" }),
+    component: text("component").notNull(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    sourceUrl: text("source_url"),
+    storageKey: text("storage_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("room_references_room_component_idx").on(table.roomAreaId, table.component),
+  ],
+);
+
+export type RoomReferenceRow = typeof roomReferences.$inferSelect;
+export type NewRoomReferenceRow = typeof roomReferences.$inferInsert;

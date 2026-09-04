@@ -1,14 +1,15 @@
+import { referenceAccept } from "@home-bird/shared/apartment-reference";
 import {
-  referenceAccept,
-  referenceComponentLabels,
-  referenceUse,
-} from "@home-bird/shared/apartment-reference";
+  roomReferenceComponentLabels,
+  type RoomReferenceComponent,
+} from "@home-bird/shared/room-reference";
 import { maxImageMegabytes } from "@home-bird/shared/image-file";
 import { Button, Input } from "@home-bird/ui";
 import { useEffect, useRef, useState } from "react";
 import { AlertIcon, PlusIcon } from "./icons";
 import { readReferenceFile, readReferenceLink, type ReferenceSelection } from "./reference-source";
-import type { ApartmentReferences } from "./use-apartment-references";
+import type { ApartmentReferences, AttachDraft } from "./use-apartment-references";
+import type { RoomAttachDraft, RoomReferences } from "./use-room-references";
 
 const tabs = [
   { id: "upload", label: "Local image" },
@@ -21,7 +22,18 @@ type Tab = (typeof tabs)[number]["id"];
  * Attaching one reference. A component holds a single image, so when it already
  * has one this dialog shows what is being given up before it asks for the new one.
  */
-export function AttachReferenceDialog({ references }: { references: ApartmentReferences }) {
+type ReferenceDialogController = Pick<
+  ApartmentReferences,
+  "cancelAttaching" | "attach" | "attaching" | "attachError" | "clearAttachError"
+> & {
+  readonly draft: AttachDraft | RoomAttachDraft | undefined;
+};
+
+export function AttachReferenceDialog({
+  references,
+}: {
+  references: ReferenceDialogController | RoomReferences;
+}) {
   const draft = references.draft;
   const [tab, setTab] = useState<Tab>("upload");
   const [selection, setSelection] = useState<ReferenceSelection>();
@@ -42,8 +54,10 @@ export function AttachReferenceDialog({ references }: { references: ApartmentRef
 
   if (draft === undefined || component === undefined) return null;
 
-  const label = referenceComponentLabels[component];
-  const use = referenceUse(component);
+  const label = roomReferenceComponentLabels[component as RoomReferenceComponent];
+  const room = "roomLabel" in references ? references : undefined;
+  const inherited = "inherited" in draft ? draft.inherited : undefined;
+  const use = component === "overall-style" ? "general-inspiration" : "close-visual-match";
   const error = localError ?? references.attachError;
 
   const pick = async (file: File | undefined) => {
@@ -90,13 +104,24 @@ export function AttachReferenceDialog({ references }: { references: ApartmentRef
         <div className="flex items-start gap-4 px-6 pt-6 pb-[18px]">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <h2 className="font-display text-[22px] font-semibold tracking-[-0.02em] text-ink">
-              {draft.replacing ? `Replace the ${label} reference?` : `Add a ${label} reference`}
+              {room
+                ? inherited
+                  ? `Override ${label} in ${room.roomLabel}`
+                  : draft.replacing
+                    ? `Replace ${label} in ${room.roomLabel}`
+                    : `Add ${label} in ${room.roomLabel}`
+                : draft.replacing
+                  ? `Replace the ${label} reference?`
+                  : `Add a ${label} reference`}
             </h2>
             <p className="text-meta text-muted">
-              Applies to the whole apartment ·{" "}
-              {use === "general-inspiration"
-                ? "used as general inspiration"
-                : "matched closely in every room"}
+              {room
+                ? `${room.roomLabel} only · the apartment default stays unchanged`
+                : `Applies to the whole apartment · ${
+                    use === "general-inspiration"
+                      ? "used as general inspiration"
+                      : "matched closely in every room"
+                  }`}
             </p>
           </div>
           <button
@@ -111,11 +136,29 @@ export function AttachReferenceDialog({ references }: { references: ApartmentRef
           </button>
         </div>
 
-        {draft.replacing && (
+        {(draft.replacing || inherited) && (
           <p className="mx-6 mb-[18px] rounded-xl bg-surface-sunk px-4 py-3 text-meta leading-[1.5] text-muted">
-            Each component holds one reference. Attaching a new image removes{" "}
-            <span className="font-medium text-ink">{draft.replacing.fileName}</span>, and every room
-            following the apartment default will use the new one.
+            {inherited ? (
+              <>
+                <span className="block text-label font-semibold tracking-[0.08em] text-accent uppercase">
+                  Current apartment default
+                </span>
+                <span className="font-medium text-ink">{inherited.fileName}</span>
+                {`. Your new image replaces this reference in ${room?.roomLabel} only.`}
+              </>
+            ) : room ? (
+              <>
+                Attaching a new image removes{" "}
+                <span className="font-medium text-ink">{draft.replacing?.fileName}</span> from this
+                room.
+              </>
+            ) : (
+              <>
+                Each component holds one reference. Attaching a new image removes{" "}
+                <span className="font-medium text-ink">{draft.replacing?.fileName}</span>, and every
+                room following the apartment default will use the new one.
+              </>
+            )}
           </p>
         )}
 
@@ -243,7 +286,9 @@ export function AttachReferenceDialog({ references }: { references: ApartmentRef
               ? "Attaching…"
               : draft.replacing
                 ? "Replace image"
-                : "Attach reference"}
+                : room
+                  ? `Use for ${room.roomLabel}`
+                  : "Attach reference"}
           </Button>
         </div>
       </div>

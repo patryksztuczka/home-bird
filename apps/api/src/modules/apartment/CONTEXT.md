@@ -25,11 +25,11 @@ The user's statement that the whole interior is now mapped. It is what unlocks g
 _Avoid_: Done, Finished, Locked, Approved
 
 **Reference**:
-An image the user attaches to say what the apartment should look like. It belongs to exactly one component, so attaching a second image to the same component replaces the first. A reference attached to the apartment stands as the default for every room.
+An image the user attaches to say what the apartment project should look like. It belongs to exactly one component and one scope. The scope is either the whole apartment project or one room area. A whole-apartment reference is the default for every room area. A room-area reference overrides that default for its component without changing any other scope. Removing the override restores the default.
 _Avoid_: Inspiration, Mood image, Sample, Attachment
 
 **Component**:
-A part of the apartment a reference can be attached to: overall style, floor, walls, ceiling, doors, windows, or lighting. The set is fixed, and every component is offered whether it has a reference or not.
+A part of the apartment project a reference can be attached to. Every room area offers overall style, floor, walls, ceiling, doors, windows, and lighting. Room types add applicable details such as furniture, cabinets, countertops, appliances, bathroom fixtures, and other. Each component accepts at most one reference in each scope.
 _Avoid_: Element, Surface, Material, Category, Field
 
 **Reference use**:
