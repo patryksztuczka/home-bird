@@ -2,10 +2,18 @@ import { Database } from "@home-bird/database";
 import { Layer } from "effect";
 import { ApartmentProjectService } from "./modules/apartment/apartment-project-service.ts";
 import { ImageStorage } from "./modules/apartment/image-storage.ts";
+import { RoomAreaService } from "./modules/apartment/room-area-service.ts";
 import { TodoService } from "./modules/todo/todo-service.ts";
 
-export const AppLayer = Layer.mergeAll(ApartmentProjectService.layer, TodoService.layer).pipe(
-  Layer.provideMerge(Layer.mergeAll(Database.layer, ImageStorage.layer)),
-);
+export const AppLayer = Layer.mergeAll(
+  ApartmentProjectService.layer,
+  RoomAreaService.layer,
+  TodoService.layer,
+).pipe(Layer.provideMerge(Layer.mergeAll(Database.layer, ImageStorage.layer)));
 
-export type AppServices = ApartmentProjectService | TodoService | ImageStorage | Database;
+export type AppServices =
+  | ApartmentProjectService
+  | RoomAreaService
+  | TodoService
+  | ImageStorage
+  | Database;

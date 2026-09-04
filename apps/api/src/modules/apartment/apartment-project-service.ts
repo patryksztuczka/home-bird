@@ -23,6 +23,8 @@ export interface ApartmentProject {
   readonly id: string;
   readonly name: string;
   readonly floorPlan: FloorPlan;
+  /** When the user last said the whole interior is mapped; null until they do. */
+  readonly roomMappingConfirmedAt: Date | null;
   readonly createdAt: Date;
 }
 
@@ -39,6 +41,7 @@ const toProject = (row: typeof apartmentProjects.$inferSelect): ApartmentProject
     contentType: row.floorPlanContentType,
     byteSize: row.floorPlanByteSize,
   },
+  roomMappingConfirmedAt: row.roomMappingConfirmedAt,
   createdAt: row.createdAt,
 });
 
@@ -178,6 +181,7 @@ export class ApartmentProjectService extends Context.Service<
             contentType: input.floorPlan.contentType as FloorPlanContentType,
             byteSize: bytes.length,
           },
+          roomMappingConfirmedAt: null,
           createdAt: new Date(yield* Clock.currentTimeMillis),
           storageKey,
         };
