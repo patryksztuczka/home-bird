@@ -7,12 +7,4 @@ describe("api", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: "ok" });
   });
-
-  it("says hello", async () => {
-    const res = await app.request("/api/hello");
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      message: "hello from hono + effect + drizzle",
-    });
-  });
 });

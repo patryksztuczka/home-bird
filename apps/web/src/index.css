@@ -1,2 +1,63 @@
 @import "tailwindcss";
 @source "../../../packages/ui/src";
+
+/*
+ * Alpine — snow x spruce. Every colour is named for the thing in the scene it
+ * came from; see the Foundations artboard in the home-bird Paper file.
+ */
+@theme {
+  --font-display: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-ui: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: #edf1ef;
+  --color-surface: #ffffff;
+  --color-surface-sunk: #f6f8f7;
+  --color-hairline: #dce4e0;
+  --color-hairline-strong: #c3cfc9;
+  --color-muted: #64736d;
+  --color-ink: #0f1a15;
+  --color-accent: #1b5e43;
+  --color-accent-hover: #164e38;
+  --color-accent-wash: #e4efe9;
+  --color-accent-edge: #c6dcd0;
+  --color-accent-ink: #3f6b57;
+  --color-danger: #b03a2a;
+  --color-danger-wash: #f7e9e6;
+  --color-danger-ink: #8a4436;
+
+  --text-label: 12px;
+  --text-meta: 13px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* Three levels only. Shadows are tinted with basalt, never neutral black. */
+  --shadow-raised: 0 2px 6px -2px rgb(15 26 21 / 0.14), 0 8px 20px -12px rgb(15 26 21 / 0.2);
+  --shadow-sheet: 0 2px 6px -2px rgb(15 26 21 / 0.16), 0 18px 40px -18px rgb(15 26 21 / 0.34);
+  --shadow-lifted: 0 4px 12px -4px rgb(15 26 21 / 0.18), 0 24px 48px -20px rgb(15 26 21 / 0.32);
+  --shadow-accent: 0 2px 6px -2px rgb(27 94 67 / 0.45), 0 8px 18px -10px rgb(27 94 67 / 0.55);
+
+  /* Nothing bounces; things settle. One curve everywhere. */
+  --ease-settle: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Motion is a courtesy, not a requirement. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
